@@ -1,0 +1,158 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <time.h>
+#include <ctype.h>
+
+#define MAX_LENGTH 1000
+#define MAX_SENTENCES 100
+#define MAX_SENTENCE_LENGTH 200
+#define MAX_LEADERBOARD_ENTRIES 100
+#define LEADERBOARD_FILE "leaderboard.txt"
+
+// Structure to hold leaderboard entry
+typedef struct {
+    char name[50];
+    float wpm;
+    float accuracy;
+} LeaderboardEntry;
+
+// Function prototypes
+int count_words(const char *text);
+float calculate_wpm(float time_taken, int word_count);
+float calculate_accuracy(const char *typed_text, const char *original_text);
+void save_leaderboard(const char *name, float wpm, float accuracy);
+void display_leaderboard();
+
+int main() {
+    char sentences[MAX_SENTENCES][MAX_SENTENCE_LENGTH];
+    int sentence_count = 0;
+    FILE *file;
+
+    file = fopen("sentences.txt", "r");
+    if (file == NULL) {
+        printf("Error: Could not open sentences.txt.\n");
+        return 1;
+    }
+
+    while (fgets(sentences[sentence_count], MAX_SENTENCE_LENGTH, file) != NULL) {
+        int new_line = strcspn(sentences[sentence_count], "\n");
+        sentences[sentence_count][new_line] = '\0';
+        sentence_count++;
+
+        if (sentence_count >= MAX_SENTENCES)
+            break;
+    }
+
+    fclose(file);
+
+    if (sentence_count == 0) {
+        printf("Error: No sentences found in sentences.txt.\n");
+        return 1;
+    }
+
+    srand(time(NULL));
+    int random_index = rand() % sentence_count;
+    char *selected_sentence = sentences[random_index];
+
+    printf("Type the following sentence:\n\n%s\n\n", selected_sentence);
+
+    clock_t start_time = clock();
+
+    char typed_text[MAX_LENGTH];
+    printf("Start typing: ");
+    fgets(typed_text, MAX_LENGTH, stdin);
+
+    typed_text[strcspn(typed_text, "\n")] = '\0';
+
+    if (strlen(typed_text) == 0) {
+        printf("No input detected. Please try again.\n");
+        return 1; 
+    }
+
+    if (strlen(typed_text) < 5) {
+        printf("Input is too short. Please type a longer sentence.\n");
+        return 1; 
+    }
+
+    clock_t end_time = clock();
+    float time_taken = (float)(end_time - start_time) / CLOCKS_PER_SEC;
+
+    int word_count = count_words(selected_sentence);
+    float wpm = calculate_wpm(time_taken, word_count);
+    float accuracy = calculate_accuracy(typed_text, selected_sentence);
+
+    printf("\nResults:\n");
+    printf("Time taken: %.2f seconds\n", time_taken);
+    printf("Words per minute: %.2f WPM\n", wpm);
+    printf("Accuracy: %.2f%%\n", accuracy);
+
+    // Save the results to the leaderboard
+    char name[50];
+    printf("Enter your name for the leaderboard: ");
+    fgets(name, sizeof(name), stdin);
+    name[strcspn(name, "\n")] = '\0'; // Remove newline character
+
+    save_leaderboard(name, wpm, accuracy);
+    display_leaderboard();
+
+    return 0;
+}
+
+int count_words(const char *text) {
+    int word_count = 0;
+    int in_word = 0;
+
+    for (int i = 0; text[i] != '\0'; i++) {
+        if (isspace(text[i])) {
+            in_word = 0;
+        } else if (in_word == 0) {
+            in_word = 1;
+            word_count++;
+        }
+    }
+
+    return word_count;
+}
+
+float calculate_wpm(float time_taken, int word_count) {
+    return (word_count / time_taken) * 60;
+}
+
+float calculate_accuracy(const char *typed_text, const char *original_text) {
+    int correct_chars = 0;
+    int total_chars = strlen(original_text);
+
+    for (int i = 0; i < total_chars; i++) {
+        if (typed_text[i] == original_text[i]) {
+            correct_chars++;
+        }
+    }
+
+    return (float) correct_chars / total_chars * 100;
+}
+
+void save_leaderboard(const char *name, float wpm, float accuracy) {
+    FILE *file = fopen(LEADERBOARD_FILE, "a");
+    if (file == NULL) {
+        printf("Error: Could not open leaderboard file.\n");
+        return;
+    }
+    fprintf(file, "%s, %.2f, %.2f\n", name, wpm, accuracy);
+    fclose(file);
+}
+
+void display_leaderboard() {
+    FILE *file = fopen(LEADERBOARD_FILE, "r");
+    if (file == NULL) {
+        printf("Error: Could not open leaderboard file.\n");
+        return;
+    }
+
+    printf("\nLeaderboard:\n");
+    char line[100];
+    while (fgets(line, sizeof(line), file) != NULL) {
+        printf("%s", line);
+    }
+    fclose(file);
+}
